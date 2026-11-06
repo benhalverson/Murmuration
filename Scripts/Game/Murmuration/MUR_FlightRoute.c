@@ -12,6 +12,7 @@ enum MUR_FlightPhase
 
 class MUR_FlightRoute
 {
+	static const float MIN_TERRAIN_CLEARANCE = 36.0;
 	protected vector m_vLaunchPoint;
 	protected vector m_vScoutPoint;
 	protected float m_fFlightAltitude;
@@ -24,7 +25,7 @@ class MUR_FlightRoute
 	{
 		m_vLaunchPoint = launchPoint;
 		m_vScoutPoint = scoutPoint;
-		m_fFlightAltitude = Math.Max(launchPoint[1], scoutPoint[1]) + 10.0;
+		m_fFlightAltitude = Math.Max(launchPoint[1], scoutPoint[1]) + MIN_TERRAIN_CLEARANCE;
 		m_fMaxFlightAltitude = m_fFlightAltitude + 40.0;
 		m_ePhase = MUR_FlightPhase.TAKEOFF;
 	}
@@ -57,6 +58,18 @@ class MUR_FlightRoute
 			return false;
 		m_fFlightAltitude = Math.Max(m_fFlightAltitude, altitude);
 		return true;
+	}
+
+	void EnsureTerrainClearance(float terrainHeight)
+	{
+		if (m_ePhase != MUR_FlightPhase.OUTBOUND && m_ePhase != MUR_FlightPhase.SEARCH && m_ePhase != MUR_FlightPhase.RETURNING)
+			return;
+		float minimumAltitude = terrainHeight + MIN_TERRAIN_CLEARANCE;
+		if (minimumAltitude > m_fFlightAltitude)
+		{
+			m_fFlightAltitude = minimumAltitude;
+			m_fMaxFlightAltitude = Math.Max(m_fMaxFlightAltitude, minimumAltitude + 40.0);
+		}
 	}
 
 	vector GetDestination()

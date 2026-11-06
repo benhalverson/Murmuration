@@ -117,6 +117,8 @@ class MUR_DroneFlightComponent : ScriptComponent
 			return;
 		}
 
+		if (!m_bClimbing && !m_bRetreating)
+			CheckTerrainClearance(position, timeSlice);
 		vector destination = m_Route.GetDestination();
 		if (m_bRetreating)
 			destination = m_vRetreatTarget;
@@ -187,5 +189,35 @@ class MUR_DroneFlightComponent : ScriptComponent
 		m_vClimbTarget[0] = target[0];
 		m_vClimbTarget[2] = target[2];
 		return true;
+	}
+
+	protected void CheckTerrainClearance(vector position, float timeSlice)
+	{
+		MUR_FlightPhase phase = m_Route.GetPhase();
+		if (phase != MUR_FlightPhase.OUTBOUND && phase != MUR_FlightPhase.SEARCH && phase != MUR_FlightPhase.RETURNING)
+			return;
+		vector direction = m_Route.GetDestination() - position;
+		direction[1] = 0;
+		float distance = direction.Length();
+		if (distance > 0.01) direction.Normalize();
+		BaseWorld world = GetGame().GetWorld();
+		float highestGround = world.GetSurfaceY(position[0], position[2]);
+		float lookAhead = Math.Min(distance, Math.Max(8.0, SPEED * timeSlice));
+		for (float step = 1; step < lookAhead; step++)
+		{
+			vector sample = position + direction * step;
+			highestGround = Math.Max(highestGround, world.GetSurfaceY(sample[0], sample[2]));
+		}
+		vector end = position + direction * lookAhead;
+		highestGround = Math.Max(highestGround, world.GetSurfaceY(end[0], end[2]));
+		m_Route.EnsureTerrainClearance(highestGround);
+		float minimumAltitude = highestGround + MUR_FlightRoute.MIN_TERRAIN_CLEARANCE;
+		if (position[1] + ARRIVAL_RADIUS < minimumAltitude)
+		{
+			m_vRetreatDirection = -direction;
+			m_vClimbTarget = position;
+			m_vClimbTarget[1] = minimumAltitude;
+			m_bClimbing = true;
+		}
 	}
 }

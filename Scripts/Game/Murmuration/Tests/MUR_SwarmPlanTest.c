@@ -111,15 +111,15 @@ class MUR_FlightRoute_SearchCyclesUntilReturn : SCR_AutotestCaseBase
 	{
 		MUR_FlightRoute route = new MUR_FlightRoute("0 0 0", "100 0 0");
 		route.ConfigureSearch({"110 0 0", "100 0 10"});
-		route.Update("0 10 0", 0.1);
-		route.Update("100 10 0", 0.1);
-		AssertTrue(vector.Distance(route.GetDestination(), "110 10 0") < 0.01, "Arrival should start the first search waypoint.");
-		route.Update("110 10 0", 0.1);
-		AssertTrue(vector.Distance(route.GetDestination(), "100 10 10") < 0.01, "Search should advance through the route.");
-		route.Update("100 10 10", 0.1);
-		AssertTrue(vector.Distance(route.GetDestination(), "110 10 0") < 0.01, "Search should cycle until recalled.");
+		route.Update("0 36 0", 0.1);
+		route.Update("100 36 0", 0.1);
+		AssertTrue(vector.Distance(route.GetDestination(), "110 36 0") < 0.01, "Arrival should start the first search waypoint.");
+		route.Update("110 36 0", 0.1);
+		AssertTrue(vector.Distance(route.GetDestination(), "100 36 10") < 0.01, "Search should advance through the route.");
+		route.Update("100 36 10", 0.1);
+		AssertTrue(vector.Distance(route.GetDestination(), "110 36 0") < 0.01, "Search should cycle until recalled.");
 		route.ReturnHome();
-		AssertTrue(vector.Distance(route.GetDestination(), "0 10 0") < 0.01, "Return should direct the drone home.");
+		AssertTrue(vector.Distance(route.GetDestination(), "0 36 0") < 0.01, "Return should direct the drone home.");
 	}
 }
 

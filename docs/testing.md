@@ -45,7 +45,7 @@ successfully, including the route-state and clear-flight tests; the obstacle
 flight timed out after 30 seconds. A separate run of that obstacle test also
 timed out. This is evidence of a Workbench limitation or failure in that
 environment, not proof of its cause. On game diagnostic 1.9.0.37, the current
-suite's 27 tests passed via `-autotest`; that result does not establish that the
+suite's 29 tests passed via `-autotest`; that result does not establish that the
 same suite passes in Workbench.
 
 Launch selection checks the full takeoff corridor. If a climb is blocked, the
@@ -53,6 +53,13 @@ drone can retreat to clear the obstacle before trying the climb again. The
 suite checks a tall spruce and a flight blocked both above and behind. If no
 clear escape is available, the flight stops at its current position and
 reports failure; it does not automatically land or return.
+
+Cruise clearance is at least 36 m above sampled terrain. This rounds up the
+32.5658 m world-bounds height measured for the tallest of 142 base-game tree
+prefabs, the high spruce `t_picea_abies_3f_high`, plus 3 m. The drone samples
+terrain ahead and raises its cruise altitude for rising ground; takeoff and
+landing pass below cruise height. This does not establish clearance over
+scaled or modded trees, buildings, or terrain between samples.
 The terrain-touchdown and blocked-touchdown checks passed in the automated game
 suite. A temporary dedicated-server probe on sloped terrain reported a final
 position of `<7312, 42.5223, 7645>`; a separate client logged the same final

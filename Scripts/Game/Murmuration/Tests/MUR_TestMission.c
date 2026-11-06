@@ -56,7 +56,7 @@ modded class SCR_BaseGameMode
 
 		vector launchPoint = drone.GetOrigin();
 		vector obstaclePosition = vector.Lerp(launchPoint, scoutPoint, 0.5);
-		obstaclePosition[1] = Math.Max(launchPoint[1], scoutPoint[1]) + 10.0;
+		obstaclePosition[1] = Math.Max(launchPoint[1], scoutPoint[1]) + MUR_FlightRoute.MIN_TERRAIN_CLEARANCE;
 		Resource obstaclePrefab = Resource.Load("{9019FBEC2B39E7B5}Prefabs/Tests/MUR_Obstacle.et");
 		if (!obstaclePrefab || !obstaclePrefab.IsValid())
 		{
