@@ -10,6 +10,8 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 	protected TextWidget m_Marker;
 	protected vector m_vScoutPoint;
 	protected bool m_bHasScoutPoint;
+	protected bool m_bSelectingPoint;
+	protected bool m_bSelectionArmed;
 
 	void Open(SCR_MapEntity mapEntity)
 	{
@@ -42,7 +44,7 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 		m_Marker.SetExactFontSize(24);
 		m_Marker.SetShadow(2);
 		FrameSlot.SetSize(m_Marker, 160, 36);
-		m_StatusText.SetText("Select a scout point on the map.");
+		m_StatusText.SetText("Click Launch Swarm to select a scout point.");
 		SCR_MapEntity.GetOnSelection().Insert(OnMapSelection);
 		SCR_PlayerController.s_MURStatusChanged.Insert(OnStatusChanged);
 		GetGame().GetCallqueue().CallLater(UpdateMarker, 100, true);
@@ -54,6 +56,7 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 		SCR_MapEntity.GetOnSelection().Remove(OnMapSelection);
 		SCR_PlayerController.s_MURStatusChanged.Remove(OnStatusChanged);
 		GetGame().GetCallqueue().Remove(UpdateMarker);
+		GetGame().GetCallqueue().Remove(ArmSelection);
 		if (m_ButtonBackground) m_ButtonBackground.RemoveFromHierarchy();
 		if (m_Button) m_Button.RemoveFromHierarchy();
 		if (m_ButtonText) m_ButtonText.RemoveFromHierarchy();
@@ -69,17 +72,31 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 
 	protected void OnMapSelection(vector screenPosition)
 	{
-		if (!m_Map) return;
+		if (!m_Map || !m_Controller || !m_bSelectingPoint || !m_bSelectionArmed || m_Controller.MUR_IsActive()) return;
+		if (!SCR_PlayerController.MUR_HasController(m_Controller.GetControlledEntity()))
+		{
+			m_bSelectingPoint = false;
+			m_bSelectionArmed = false;
+			Refresh();
+			return;
+		}
 		float x, z;
 		float screenY = screenPosition[1];
 		if (Math.AbsFloat(screenPosition[2]) > 0.5) screenY = screenPosition[2];
 		m_Map.ScreenToWorld(screenPosition[0], screenY, x, z);
 		m_vScoutPoint = Vector(x, GetGame().GetWorld().GetSurfaceY(x, z), z);
 		m_bHasScoutPoint = true;
+		m_bSelectingPoint = false;
+		m_bSelectionArmed = false;
 		m_Marker.SetVisible(true);
 		UpdateMarker();
-		if (m_StatusText) m_StatusText.SetText(string.Format("Scout point: %1", m_vScoutPoint));
+		m_Controller.MUR_RequestLaunch(m_vScoutPoint);
 		Refresh();
+	}
+
+	protected void ArmSelection()
+	{
+		if (m_bSelectingPoint) m_bSelectionArmed = true;
 	}
 
 	protected void UpdateMarker()
@@ -101,14 +118,19 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 	{
 		if (!m_Button || !m_Controller) return;
 		bool hasController = SCR_PlayerController.MUR_HasController(m_Controller.GetControlledEntity());
-		if (!hasController && m_StatusText)
-			m_StatusText.SetText("Equip a drone controller to launch.");
-		else if (m_Controller.MUR_IsActive() && m_StatusText)
-			m_StatusText.SetText(m_Controller.MUR_GetStatus());
-		bool canLaunch = hasController && m_bHasScoutPoint && !m_Controller.MUR_IsActive();
+		if (m_StatusText)
+		{
+			if (m_bSelectingPoint) m_StatusText.SetText("Click a scout point on the map to launch.");
+			else if (!m_Controller.MUR_GetStatus().IsEmpty()) m_StatusText.SetText(m_Controller.MUR_GetStatus());
+			else if (!hasController) m_StatusText.SetText("Equip a drone controller to launch.");
+			else m_StatusText.SetText("Click Launch Swarm to select a scout point.");
+		}
+		bool canLaunch = hasController && !m_Controller.MUR_IsActive();
 		m_Button.SetEnabled(canLaunch);
 		if (m_ButtonText)
 		{
+			if (m_bSelectingPoint) m_ButtonText.SetText("Cancel selection");
+			else m_ButtonText.SetText("Launch Swarm");
 			if (canLaunch) m_ButtonText.SetColor(Color.White);
 			else m_ButtonText.SetColor(new Color(0.75, 0.75, 0.75, 1));
 		}
@@ -116,8 +138,16 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 
 	override bool OnClick(Widget w, int x, int y, int button)
 	{
-		if (w != m_Button || !m_Controller || !m_bHasScoutPoint) return false;
-		m_Controller.MUR_RequestLaunch(m_vScoutPoint);
+		if (w != m_Button || !m_Controller || m_Controller.MUR_IsActive() || !SCR_PlayerController.MUR_HasController(m_Controller.GetControlledEntity())) return false;
+		m_bSelectingPoint = !m_bSelectingPoint;
+		m_bSelectionArmed = false;
+		GetGame().GetCallqueue().Remove(ArmSelection);
+		if (m_bSelectingPoint)
+		{
+			m_bHasScoutPoint = false;
+			if (m_Marker) m_Marker.SetVisible(false);
+			GetGame().GetCallqueue().CallLater(ArmSelection, 100, false);
+		}
 		Refresh();
 		return true;
 	}

@@ -81,7 +81,7 @@ ArmaReforgerSteamDiag.exe -client 127.0.0.1 -addonsDir "<directory containing mu
 ```
 
 Start the client after the server reports `Starting RPL server`, deploy, open
-the map, choose a scout point and press **Launch Swarm**. The server uses
+the map, press **Launch Swarm**, then click a scout point to begin planning. The server uses
 `http://127.0.0.1:11434/` for Ollama by default; install the
 `qwen3.5:latest` model there. Use `-murOllamaUrl <server-accessible-url>` on
 the server when Ollama is hosted elsewhere. In particular, Windows and WSL
