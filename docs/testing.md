@@ -45,11 +45,13 @@ successfully, including the route-state and clear-flight tests; the obstacle
 flight timed out after 30 seconds. A separate run of that obstacle test also
 timed out. This is evidence of a Workbench limitation or failure in that
 environment, not proof of its cause. On game diagnostic 1.9.0.37, the current
-suite's 26 tests passed via `-autotest`; that result does not establish that the
+suite's 27 tests passed via `-autotest`; that result does not establish that the
 same suite passes in Workbench.
 
-Launch selection checks the full takeoff corridor. If an obstacle blocks a
-flight and no climb is available, the flight stops at its current position and
+Launch selection checks the full takeoff corridor. If a climb is blocked, the
+drone can retreat to clear the obstacle before trying the climb again. The
+suite checks a tall spruce and a flight blocked both above and behind. If no
+clear escape is available, the flight stops at its current position and
 reports failure; it does not automatically land or return.
 The terrain-touchdown and blocked-touchdown checks passed in the automated game
 suite. A temporary dedicated-server probe on sloped terrain reported a final

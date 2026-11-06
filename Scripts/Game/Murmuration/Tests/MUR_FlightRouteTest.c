@@ -439,6 +439,7 @@ class MUR_VioletFlight_BlockedClimb_Fails : SCR_AutotestCaseBase
 	protected IEntity m_Drone;
 	protected IEntity m_Obstacle;
 	protected IEntity m_Ceiling;
+	protected IEntity m_RearObstacle;
 	protected MUR_DroneFlightComponent m_Flight;
 
 	[TestStep(TestStage.Setup)]
@@ -454,7 +455,8 @@ class MUR_VioletFlight_BlockedClimb_Fails : SCR_AutotestCaseBase
 		m_Drone = GetGame().SpawnEntityPrefab(drone, GetGame().GetWorld());
 		m_Obstacle = GetGame().SpawnEntityPrefab(obstacle, GetGame().GetWorld());
 		m_Ceiling = GetGame().SpawnEntityPrefab(obstacle, GetGame().GetWorld());
-		if (!m_Drone || !m_Obstacle || !m_Ceiling)
+		m_RearObstacle = GetGame().SpawnEntityPrefab(obstacle, GetGame().GetWorld());
+		if (!m_Drone || !m_Obstacle || !m_Ceiling || !m_RearObstacle)
 		{
 			SetFailure("Flight fixtures could not be spawned.");
 			return;
@@ -465,6 +467,9 @@ class MUR_VioletFlight_BlockedClimb_Fails : SCR_AutotestCaseBase
 		m_Ceiling.SetOrigin("103 112 100");
 		m_Ceiling.Update();
 		GenericEntity.Cast(m_Ceiling).OnTransformReset();
+		m_RearObstacle.SetOrigin("101 111.5 100");
+		m_RearObstacle.Update();
+		GenericEntity.Cast(m_RearObstacle).OnTransformReset();
 		m_Drone.SetOrigin("100 100 100");
 		m_Flight = MUR_DroneFlightComponent.Cast(m_Drone.FindComponent(MUR_DroneFlightComponent));
 		if (!m_Flight || !m_Flight.StartFlight("108 100 100"))
@@ -489,6 +494,7 @@ class MUR_VioletFlight_BlockedClimb_Fails : SCR_AutotestCaseBase
 		if (m_Drone) SCR_EntityHelper.DeleteEntityAndChildren(m_Drone);
 		if (m_Obstacle) SCR_EntityHelper.DeleteEntityAndChildren(m_Obstacle);
 		if (m_Ceiling) SCR_EntityHelper.DeleteEntityAndChildren(m_Ceiling);
+		if (m_RearObstacle) SCR_EntityHelper.DeleteEntityAndChildren(m_RearObstacle);
 	}
 }
 
@@ -571,6 +577,55 @@ class MUR_VioletFlight_Obstacle_ClimbsAndReturns : SCR_AutotestCaseBase
 			SCR_EntityHelper.DeleteEntityAndChildren(m_Obstacle);
 		m_Drone = null;
 		m_Obstacle = null;
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 45)]
+class MUR_VioletFlight_TallTree_RetreatsAndReturns : SCR_AutotestCaseBase
+{
+	protected IEntity m_Drone;
+	protected IEntity m_Tree;
+	protected MUR_DroneFlightComponent m_Flight;
+
+	[TestStep(TestStage.Setup)]
+	void Setup_Flight()
+	{
+		Resource tree = Resource.Load("{CCAB9CE2D5FD851E}Prefabs/Vegetation/Tree/t_picea_abies/t_picea_abies_3f_high.et");
+		Resource drone = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
+		if (!tree || !tree.IsValid() || !drone || !drone.IsValid()) { SetFailure("Could not load the fixtures."); return; }
+		m_Tree = GetGame().SpawnEntityPrefab(tree, GetGame().GetWorld());
+		m_Drone = GetGame().SpawnEntityPrefab(drone, GetGame().GetWorld());
+		if (!m_Tree || !m_Drone) { SetFailure("Could not spawn the fixtures."); return; }
+		m_Tree.SetOrigin("104 100 100");
+		m_Tree.Update();
+		GenericEntity.Cast(m_Tree).OnTransformReset();
+		TraceSphere treeTrace = new TraceSphere();
+		treeTrace.Radius = 0.2;
+		treeTrace.Start = "102 110 100";
+		treeTrace.End = "106 110 100";
+		treeTrace.Flags = TraceFlags.DEFAULT | TraceFlags.ANY_CONTACT;
+		if (GetGame().GetWorld().TraceMove(treeTrace, null) >= 1 || treeTrace.TraceEnt != m_Tree)
+		{
+			SetFailure("The tree does not intersect the flight path.");
+			return;
+		}
+		m_Drone.SetOrigin("100 100 100");
+		m_Flight = MUR_DroneFlightComponent.Cast(m_Drone.FindComponent(MUR_DroneFlightComponent));
+		if (!m_Flight || !m_Flight.StartFlight("108 100 100")) SetFailure("Could not start flight.");
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForFlight()
+	{
+		if (m_Flight.IsFailed()) { SetFailure("Flight failed at a tree."); return true; }
+		return m_Flight.IsComplete();
+	}
+
+	[TestStep(TestStage.TearDown)]
+	void TearDown_DeleteFixtures()
+	{
+		if (m_Drone) SCR_EntityHelper.DeleteEntityAndChildren(m_Drone);
+		if (m_Tree) SCR_EntityHelper.DeleteEntityAndChildren(m_Tree);
 	}
 }
 

@@ -8,7 +8,11 @@ class MUR_DroneFlightComponent : ScriptComponent
 	protected ref MUR_FlightRoute m_Route;
 	protected bool m_bObstructed;
 	protected bool m_bClimbing;
+	protected bool m_bRetreating;
 	protected vector m_vClimbTarget;
+	protected vector m_vRetreatTarget;
+	protected vector m_vRetreatDirection;
+	protected int m_iRetreatAttempts;
 	protected float m_fTouchdownDrop;
 	protected vector m_vTouchdownPosition;
 	[RplProp(onRplName: "OnPositionChanged")]
@@ -70,7 +74,9 @@ class MUR_DroneFlightComponent : ScriptComponent
 			return;
 
 		vector position = owner.GetOrigin();
-		if (m_bClimbing && vector.Distance(position, m_vClimbTarget) <= ARRIVAL_RADIUS)
+		if (m_bRetreating && vector.Distance(position, m_vRetreatTarget) <= ARRIVAL_RADIUS)
+			m_bRetreating = false;
+		if (m_bClimbing && !m_bRetreating && vector.Distance(position, m_vClimbTarget) <= ARRIVAL_RADIUS)
 			m_bClimbing = false;
 		if (!m_bClimbing)
 			m_Route.Update(position, ARRIVAL_RADIUS);
@@ -112,7 +118,9 @@ class MUR_DroneFlightComponent : ScriptComponent
 		}
 
 		vector destination = m_Route.GetDestination();
-		if (m_bClimbing)
+		if (m_bRetreating)
+			destination = m_vRetreatTarget;
+		else if (m_bClimbing)
 			destination = m_vClimbTarget;
 		float distance = vector.Distance(position, destination);
 		if (distance <= ARRIVAL_RADIUS)
@@ -131,8 +139,15 @@ class MUR_DroneFlightComponent : ScriptComponent
 		{
 			if (!m_bClimbing && m_Route.RaiseCruiseAltitude(position[1] + 5.0))
 			{
+				m_vRetreatDirection = position - destination;
+				m_vRetreatDirection[1] = 0;
+				m_vRetreatDirection.Normalize();
 				m_vClimbTarget = position + "0 5 0";
 				m_bClimbing = true;
+			}
+			else if (m_bClimbing && !m_bRetreating && TryRetreat(position, owner))
+			{
+				m_bRetreating = true;
 			}
 			else
 			{
@@ -142,6 +157,8 @@ class MUR_DroneFlightComponent : ScriptComponent
 			}
 			return;
 		}
+		if (!m_bClimbing && !m_bRetreating)
+			m_iRetreatAttempts = 0;
 
 		owner.SetOrigin(nextPosition);
 		owner.Update();
@@ -150,5 +167,25 @@ class MUR_DroneFlightComponent : ScriptComponent
 		RplComponent replication = RplComponent.Cast(owner.FindComponent(RplComponent));
 		if (replication)
 			replication.ForceNodeMovement(position);
+	}
+
+	protected bool TryRetreat(vector position, IEntity owner)
+	{
+		if (m_iRetreatAttempts >= 3 || m_vRetreatDirection.Length() < 0.5)
+			return false;
+		vector target = position + m_vRetreatDirection * 3.0;
+		TraceSphere retreat = new TraceSphere();
+		retreat.Radius = 0.2;
+		retreat.Start = position;
+		retreat.End = target;
+		retreat.Exclude = owner;
+		retreat.Flags = TraceFlags.DEFAULT | TraceFlags.ANY_CONTACT;
+		if (GetGame().GetWorld().TraceMove(retreat, null) < 1.0)
+			return false;
+		m_iRetreatAttempts++;
+		m_vRetreatTarget = target;
+		m_vClimbTarget[0] = target[0];
+		m_vClimbTarget[2] = target[2];
+		return true;
 	}
 }
