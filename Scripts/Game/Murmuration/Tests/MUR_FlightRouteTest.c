@@ -1,4 +1,4 @@
-[Test(suite: MUR_FlightRouteSuite, timeoutS: 25)]
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 40)]
 class MUR_DroneLaunch_ClearGround_LandsOnTerrain : SCR_AutotestCaseBase
 {
 	protected IEntity m_Requester;
@@ -54,7 +54,7 @@ class MUR_DroneLaunch_ClearGround_LandsOnTerrain : SCR_AutotestCaseBase
 	}
 }
 
-[Test(suite: MUR_FlightRouteSuite, timeoutS: 25)]
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 40)]
 class MUR_DroneLaunch_BlockedTouchdown_Fails : SCR_AutotestCaseBase
 {
 	protected IEntity m_Requester;
@@ -148,7 +148,7 @@ class MUR_VioletPrefab_Spawn_HasFlightComponent : SCR_AutotestCaseBase
 	}
 }
 
-[Test(suite: MUR_FlightRouteSuite, timeoutS: 25)]
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 40)]
 class MUR_VioletFlight_ClearPath_ReturnsToLaunch : SCR_AutotestCaseBase
 {
 	protected IEntity m_Drone;
@@ -433,12 +433,13 @@ class MUR_VioletFlight_BlockedTakeoff_Fails : SCR_AutotestCaseBase
 	}
 }
 
-[Test(suite: MUR_FlightRouteSuite, timeoutS: 15)]
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 30)]
 class MUR_VioletFlight_BlockedClimb_Fails : SCR_AutotestCaseBase
 {
 	protected IEntity m_Drone;
 	protected IEntity m_Obstacle;
 	protected IEntity m_Ceiling;
+	protected IEntity m_RearObstacle;
 	protected MUR_DroneFlightComponent m_Flight;
 
 	[TestStep(TestStage.Setup)]
@@ -454,17 +455,21 @@ class MUR_VioletFlight_BlockedClimb_Fails : SCR_AutotestCaseBase
 		m_Drone = GetGame().SpawnEntityPrefab(drone, GetGame().GetWorld());
 		m_Obstacle = GetGame().SpawnEntityPrefab(obstacle, GetGame().GetWorld());
 		m_Ceiling = GetGame().SpawnEntityPrefab(obstacle, GetGame().GetWorld());
-		if (!m_Drone || !m_Obstacle || !m_Ceiling)
+		m_RearObstacle = GetGame().SpawnEntityPrefab(obstacle, GetGame().GetWorld());
+		if (!m_Drone || !m_Obstacle || !m_Ceiling || !m_RearObstacle)
 		{
 			SetFailure("Flight fixtures could not be spawned.");
 			return;
 		}
-		m_Obstacle.SetOrigin("104 110 100");
+		m_Obstacle.SetOrigin("104 136 100");
 		m_Obstacle.Update();
 		GenericEntity.Cast(m_Obstacle).OnTransformReset();
-		m_Ceiling.SetOrigin("103 112 100");
+		m_Ceiling.SetOrigin("103 138 100");
 		m_Ceiling.Update();
 		GenericEntity.Cast(m_Ceiling).OnTransformReset();
+		m_RearObstacle.SetOrigin("101 137.5 100");
+		m_RearObstacle.Update();
+		GenericEntity.Cast(m_RearObstacle).OnTransformReset();
 		m_Drone.SetOrigin("100 100 100");
 		m_Flight = MUR_DroneFlightComponent.Cast(m_Drone.FindComponent(MUR_DroneFlightComponent));
 		if (!m_Flight || !m_Flight.StartFlight("108 100 100"))
@@ -489,10 +494,11 @@ class MUR_VioletFlight_BlockedClimb_Fails : SCR_AutotestCaseBase
 		if (m_Drone) SCR_EntityHelper.DeleteEntityAndChildren(m_Drone);
 		if (m_Obstacle) SCR_EntityHelper.DeleteEntityAndChildren(m_Obstacle);
 		if (m_Ceiling) SCR_EntityHelper.DeleteEntityAndChildren(m_Ceiling);
+		if (m_RearObstacle) SCR_EntityHelper.DeleteEntityAndChildren(m_RearObstacle);
 	}
 }
 
-[Test(suite: MUR_FlightRouteSuite, timeoutS: 30)]
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 45)]
 class MUR_VioletFlight_Obstacle_ClimbsAndReturns : SCR_AutotestCaseBase
 {
 	protected IEntity m_Obstacle;
@@ -519,14 +525,14 @@ class MUR_VioletFlight_Obstacle_ClimbsAndReturns : SCR_AutotestCaseBase
 			SetFailure("Obstacle or drone prefab could not be spawned.");
 			return;
 		}
-		m_Obstacle.SetOrigin("104 110 100");
+		m_Obstacle.SetOrigin("104 136 100");
 		m_Obstacle.Update();
 		GenericEntity.Cast(m_Obstacle).OnTransformReset();
 		m_Drone.SetOrigin(m_vLaunch);
 		TraceSphere trace = new TraceSphere();
 		trace.Radius = 0.2;
-		trace.Start = "102 110.5 100";
-		trace.End = "106 110.5 100";
+		trace.Start = "102 136.5 100";
+		trace.End = "106 136.5 100";
 		trace.Flags = TraceFlags.DEFAULT | TraceFlags.ANY_CONTACT;
 		if (GetGame().GetWorld().TraceMove(trace, null) >= 1.0)
 		{
@@ -546,7 +552,7 @@ class MUR_VioletFlight_Obstacle_ClimbsAndReturns : SCR_AutotestCaseBase
 	bool Execute_WaitForReturn()
 	{
 		vector position = m_Drone.GetOrigin();
-		if (position[1] > 111)
+		if (position[1] > 137)
 			m_bClimbed = true;
 		return m_Flight.IsComplete();
 	}
@@ -574,6 +580,91 @@ class MUR_VioletFlight_Obstacle_ClimbsAndReturns : SCR_AutotestCaseBase
 	}
 }
 
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 45)]
+class MUR_VioletFlight_TallTree_ClearsAndReturns : SCR_AutotestCaseBase
+{
+	protected IEntity m_Drone;
+	protected IEntity m_Tree;
+	protected MUR_DroneFlightComponent m_Flight;
+	protected bool m_bClearedTree;
+
+	[TestStep(TestStage.Setup)]
+	void Setup_Flight()
+	{
+		Resource tree = Resource.Load("{CCAB9CE2D5FD851E}Prefabs/Vegetation/Tree/t_picea_abies/t_picea_abies_3f_high.et");
+		Resource drone = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
+		if (!tree || !tree.IsValid() || !drone || !drone.IsValid()) { SetFailure("Could not load the fixtures."); return; }
+		m_Tree = GetGame().SpawnEntityPrefab(tree, GetGame().GetWorld());
+		m_Drone = GetGame().SpawnEntityPrefab(drone, GetGame().GetWorld());
+		if (!m_Tree || !m_Drone) { SetFailure("Could not spawn the fixtures."); return; }
+		m_Tree.SetOrigin("104 100 100");
+		m_Tree.Update();
+		GenericEntity.Cast(m_Tree).OnTransformReset();
+		TraceSphere treeTrace = new TraceSphere();
+		treeTrace.Radius = 0.2;
+		treeTrace.Start = "102 110 100";
+		treeTrace.End = "106 110 100";
+		treeTrace.Flags = TraceFlags.DEFAULT | TraceFlags.ANY_CONTACT;
+		if (GetGame().GetWorld().TraceMove(treeTrace, null) >= 1 || treeTrace.TraceEnt != m_Tree)
+		{
+			SetFailure("The tree does not intersect the flight path.");
+			return;
+		}
+		m_Drone.SetOrigin("100 100 100");
+		m_Flight = MUR_DroneFlightComponent.Cast(m_Drone.FindComponent(MUR_DroneFlightComponent));
+		if (!m_Flight || !m_Flight.StartFlight("108 100 100")) SetFailure("Could not start flight.");
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForFlight()
+	{
+		if (m_Flight.IsFailed()) { SetFailure("Flight failed at a tree."); return true; }
+		vector position = m_Drone.GetOrigin();
+		if (position[0] > 104 && position[1] >= 135.9) m_bClearedTree = true;
+		return m_Flight.IsComplete();
+	}
+
+	[TestStep(TestStage.Main)]
+	void Execute_AssertClearance()
+	{
+		AssertTrue(m_bClearedTree, "The drone should cross above the tallest tree before returning.");
+	}
+
+	[TestStep(TestStage.TearDown)]
+	void TearDown_DeleteFixtures()
+	{
+		if (m_Drone) SCR_EntityHelper.DeleteEntityAndChildren(m_Drone);
+		if (m_Tree) SCR_EntityHelper.DeleteEntityAndChildren(m_Tree);
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 5)]
+class MUR_FlightRoute_MinimumTreeClearance : SCR_AutotestCaseBase
+{
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		MUR_FlightRoute route = new MUR_FlightRoute("0 42 0", "100 47 0");
+		AssertTrue(vector.Distance(route.GetDestination(), "0 83 0") < 0.01, "Takeoff must reach at least 36 m above the higher endpoint.");
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 5)]
+class MUR_FlightRoute_RisingTerrain_RaisesCruiseAltitude : SCR_AutotestCaseBase
+{
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		MUR_FlightRoute route = new MUR_FlightRoute("0 0 0", "100 0 0");
+		route.Update("0 36 0", 0.1);
+		route.EnsureTerrainClearance(50);
+		AssertTrue(vector.Distance(route.GetDestination(), "100 86 0") < 0.01, "Rising terrain should raise cruise altitude to preserve clearance.");
+		route.EnsureTerrainClearance(10);
+		AssertTrue(vector.Distance(route.GetDestination(), "100 86 0") < 0.01, "A lower terrain sample should not lower the flight path.");
+		AssertTrue(route.RaiseCruiseAltitude(126), "The obstacle climb limit should follow the raised terrain floor.");
+	}
+}
+
 [Test(suite: MUR_FlightRouteSuite, timeoutS: 5)]
 class MUR_FlightRoute_Obstruction_ClimbIsBounded : SCR_AutotestCaseBase
 {
@@ -582,10 +673,10 @@ class MUR_FlightRoute_Obstruction_ClimbIsBounded : SCR_AutotestCaseBase
 	{
 		MUR_FlightRoute route = new MUR_FlightRoute("0 0 0", "100 0 0");
 		AssertTrue(!route.RaiseCruiseAltitude(15), "Do not reroute while taking off.");
-		route.Update("0 10 0", 0.1);
-		AssertTrue(route.RaiseCruiseAltitude(15), "Cruise altitude should increase to clear an obstacle.");
-		AssertTrue(vector.Distance(route.GetDestination(), "100 15 0") < 0.01, "Outbound destination should use the raised altitude.");
-		AssertTrue(!route.RaiseCruiseAltitude(51), "A climb above the configured limit must be rejected.");
+		route.Update("0 36 0", 0.1);
+		AssertTrue(route.RaiseCruiseAltitude(41), "Cruise altitude should increase to clear an obstacle.");
+		AssertTrue(vector.Distance(route.GetDestination(), "100 41 0") < 0.01, "Outbound destination should use the raised altitude.");
+		AssertTrue(!route.RaiseCruiseAltitude(77), "A climb above the configured limit must be rejected.");
 	}
 }
 
@@ -597,8 +688,8 @@ class MUR_FlightRoute_OutAndBack_CompletesAtLaunch : SCR_AutotestCaseBase
 	{
 		vector launchPoint = "0 0 0";
 		vector scoutPoint = "100 0 0";
-		vector launchAltitude = "0 10 0";
-		vector scoutAltitude = "100 10 0";
+		vector launchAltitude = "0 36 0";
+		vector scoutAltitude = "100 36 0";
 		MUR_FlightRoute route = new MUR_FlightRoute(launchPoint, scoutPoint);
 
 		route.Update(launchPoint, 1);

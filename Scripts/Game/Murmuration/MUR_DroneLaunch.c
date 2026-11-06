@@ -1,4 +1,10 @@
-// Server-side entry point for a single test mission.
+class MUR_DroneLaunchSite
+{
+	vector position;
+	float touchdownDrop;
+}
+
+// Server-side launch-site selection and aircraft spawning.
 class MUR_DroneLaunch
 {
 	protected static const float SPAWN_GROUND_CLEARANCE = 0.25;
@@ -7,15 +13,20 @@ class MUR_DroneLaunch
 
 	static IEntity LaunchNear(IEntity player, vector scoutPoint)
 	{
-		if (!Replication.IsServer() || !player)
+		array<ref MUR_DroneLaunchSite> sites = {};
+		if (!FindSites(player, scoutPoint, 1, sites))
 			return null;
+		return LaunchAt(sites[0], scoutPoint, null);
+	}
 
+	static bool FindSites(IEntity player, vector scoutPoint, int count, notnull array<ref MUR_DroneLaunchSite> sites)
+	{
+		sites.Clear();
+		if (!Replication.IsServer() || !player || count < 1 || count > 3)
+			return false;
 		BaseWorld world = GetGame().GetWorld();
 		vector playerPosition = player.GetOrigin();
 		array<vector> offsets = {"2 0 0", "-2 0 0", "0 0 2", "0 0 -2", "4 0 0", "-4 0 0", "0 0 4", "0 0 -4"};
-		vector spawnPoint;
-		float touchdownDrop;
-		bool foundClearSpot;
 		foreach (vector offset : offsets)
 		{
 			vector candidate = playerPosition + offset;
@@ -33,27 +44,38 @@ class MUR_DroneLaunch
 				continue;
 			vector displacement = scoutPoint - candidate;
 			displacement[1] = 0;
-			if (displacement.Length() > 2000.0)
+			if (!(displacement.Length() <= 2000.0))
 				continue;
-			TraceSphere clearance = new TraceSphere();
-			clearance.Radius = 0.2;
-			MUR_FlightRoute candidateRoute = new MUR_FlightRoute(candidate, scoutPoint);
-			clearance.Start = candidateRoute.GetDestination();
-			clearance.End = candidate;
-			clearance.Flags = TraceFlags.DEFAULT | TraceFlags.ANY_CONTACT;
-			if (world.TraceMove(clearance, null) < 1.0)
+			MUR_DroneLaunchSite site = new MUR_DroneLaunchSite();
+			site.position = candidate;
+			site.touchdownDrop = candidate[1] - touchdownHeight;
+			if (!IsSiteClear(site, scoutPoint))
 				continue;
-			spawnPoint = candidate;
-			touchdownDrop = candidate[1] - touchdownHeight;
-			foundClearSpot = true;
-			break;
+			sites.Insert(site);
+			if (sites.Count() == count)
+				return true;
 		}
-		if (!foundClearSpot)
-		{
-			Print("MUR launch rejected: no nearby clear launch position in range");
-			return null;
-		}
+		sites.Clear();
+		return false;
+	}
 
+	static bool IsSiteClear(MUR_DroneLaunchSite site, vector scoutPoint)
+	{
+		if (!site) return false;
+		TraceSphere clearance = new TraceSphere();
+		clearance.Radius = 0.2;
+		MUR_FlightRoute candidateRoute = new MUR_FlightRoute(site.position, scoutPoint);
+		clearance.Start = candidateRoute.GetDestination();
+		clearance.End = site.position;
+		clearance.Flags = TraceFlags.DEFAULT | TraceFlags.ANY_CONTACT;
+		return GetGame().GetWorld().TraceMove(clearance, null) >= 1.0;
+	}
+
+	static IEntity LaunchAt(MUR_DroneLaunchSite site, vector scoutPoint, array<vector> waypoints)
+	{
+		if (!Replication.IsServer() || !site || !IsSiteClear(site, scoutPoint))
+			return null;
+		BaseWorld world = GetGame().GetWorld();
 		Resource prefab = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
 		if (!prefab || !prefab.IsValid())
 		{
@@ -63,7 +85,7 @@ class MUR_DroneLaunch
 
 		EntitySpawnParams params = new EntitySpawnParams();
 		params.TransformMode = ETransformMode.WORLD;
-		params.Transform[3] = spawnPoint;
+		params.Transform[3] = site.position;
 		IEntity drone = GetGame().SpawnEntityPrefab(prefab, world, params);
 		if (!drone)
 		{
@@ -72,7 +94,7 @@ class MUR_DroneLaunch
 		}
 
 		MUR_DroneFlightComponent flight = MUR_DroneFlightComponent.Cast(drone.FindComponent(MUR_DroneFlightComponent));
-		if (!flight || !flight.StartFlight(scoutPoint, touchdownDrop))
+		if (!flight || !flight.StartFlight(scoutPoint, site.touchdownDrop, waypoints))
 		{
 			Print("MUR launch rejected: flight component could not start");
 			RplComponent.DeleteRplEntity(drone, false);
