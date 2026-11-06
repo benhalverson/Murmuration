@@ -37,6 +37,11 @@ The following diagnostic commands start an opt-in test launch when a player
 spawns, after a ten-second delay. Set the paths for the installed game and
 server, and use an isolated profile for each process. The example uses a scout point 20 metres from the
 player along world X. `-murTestScout` is a test-only offset, not the map UI.
+Add `-murTestObstacle 1` to the server command to place a test crate halfway
+along the outbound path at the planned flight altitude and sets the time to
+noon when the player deploys. The server verifies that the crate is the first
+trace hit on the route and reports flight completion and peak altitude. This option
+is for a controlled test; verify the crate and the flight on the client.
 
 ```powershell
 ArmaReforgerServerDiag.exe -server "worlds/MP/CTI_Campaign_Eden.ent" -addonsDir "<directory containing murmuration>" -addons A524B9D4F8038E71 -murTestScout "20 0 0" -profile "<temporary server profile>" -maxFPS 30 -noThrow
@@ -55,8 +60,11 @@ was rejected because its takeoff corridor was blocked. After adding a search
 for nearby positions, a later server run reported a successful drone spawn at a
 different player spawn location. With the delayed test launch, the player
 confirmed from the connected client that the drone took off, flew to the scout
-point, returned, and landed. A route with obstacles has not yet been verified
-in multiplayer. A separate temporary instrumented probe spawned a
+point, returned, and landed. In an obstacle test, the server confirmed the crate
+was the first trace hit, then reported a completed flight with a peak altitude
+of 57.2321 m against a planned altitude of 52.2322 m. The player confirmed that
+both the crate and the drone's flight were visible on the connected client.
+A separate temporary instrumented probe spawned a
 drone in the air after a client connected; the client logged proxy positions
 changing from `<3819,350.133,5436>` to `<3819,350.372,5436>`. This establishes
 that some position updates reached the proxy, not that a player saw a complete
