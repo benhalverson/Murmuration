@@ -22,6 +22,10 @@ trace, then checks that the drone climbs and returns. It does not establish
 general obstacle navigation, a real player launch, or complete multiplayer
 behavior. Running the test through Workbench's test plugin is not yet verified.
 
+Launch selection checks the full takeoff corridor. If an obstacle blocks a
+flight and no climb is available, the flight stops at its current position and
+reports failure; it does not automatically land or return.
+
 The VIOLET mesh was exported from the original CAD assembly via STEP and STL,
 then imported into Workbench as an FBX. This conversion merges the assembly into
 one mesh and does not preserve the CAD materials or animate propellers. Its

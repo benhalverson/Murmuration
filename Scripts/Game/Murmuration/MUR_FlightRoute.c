@@ -5,7 +5,8 @@ enum MUR_FlightPhase
 	OUTBOUND,
 	RETURNING,
 	LANDING,
-	COMPLETE
+	COMPLETE,
+	FAILED
 }
 
 class MUR_FlightRoute
@@ -28,6 +29,11 @@ class MUR_FlightRoute
 	MUR_FlightPhase GetPhase()
 	{
 		return m_ePhase;
+	}
+
+	void Fail()
+	{
+		m_ePhase = MUR_FlightPhase.FAILED;
 	}
 
 	bool RaiseCruiseAltitude(float altitude)
@@ -61,7 +67,7 @@ class MUR_FlightRoute
 	// The caller supplies the actual aircraft position and arrival tolerance.
 	void Update(vector position, float arrivalRadius)
 	{
-		if (m_ePhase == MUR_FlightPhase.COMPLETE || arrivalRadius < 0)
+		if (m_ePhase == MUR_FlightPhase.COMPLETE || m_ePhase == MUR_FlightPhase.FAILED || arrivalRadius < 0)
 			return;
 
 		if (vector.Distance(position, GetDestination()) > arrivalRadius)

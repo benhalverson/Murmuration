@@ -240,7 +240,7 @@ class MUR_DroneLaunch_BlockedAbove_UsesAnotherPosition : SCR_AutotestCaseBase
 		vector position = "100 0 100";
 		position[1] = GetGame().GetWorld().GetSurfaceY(position[0], position[2]);
 		requester.SetOrigin(position);
-		obstacle.SetOrigin(position + "2 2 0");
+		obstacle.SetOrigin(position + "2 6 0");
 		obstacle.Update();
 		GenericEntity.Cast(obstacle).OnTransformReset();
 		IEntity drone = MUR_DroneLaunch.LaunchNear(requester, position + "20 0 0");
@@ -253,6 +253,118 @@ class MUR_DroneLaunch_BlockedAbove_UsesAnotherPosition : SCR_AutotestCaseBase
 		}
 		SCR_EntityHelper.DeleteEntityAndChildren(obstacle);
 		RplComponent.DeleteRplEntity(requester, false);
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 10)]
+class MUR_VioletFlight_BlockedTakeoff_Fails : SCR_AutotestCaseBase
+{
+	protected IEntity m_Obstacle;
+	protected IEntity m_Drone;
+	protected MUR_DroneFlightComponent m_Flight;
+
+	[TestStep(TestStage.Setup)]
+	void Setup_Flight()
+	{
+		Resource obstacle = Resource.Load("{9019FBEC2B39E7B5}Prefabs/Tests/MUR_Obstacle.et");
+		Resource drone = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
+		if (!obstacle || !obstacle.IsValid() || !drone || !drone.IsValid())
+		{
+			SetFailure("Flight fixtures could not be loaded.");
+			return;
+		}
+		m_Obstacle = GetGame().SpawnEntityPrefab(obstacle, GetGame().GetWorld());
+		m_Drone = GetGame().SpawnEntityPrefab(drone, GetGame().GetWorld());
+		if (!m_Obstacle || !m_Drone)
+		{
+			SetFailure("Flight fixtures could not be spawned.");
+			return;
+		}
+		m_Obstacle.SetOrigin("100 102 100");
+		m_Obstacle.Update();
+		GenericEntity.Cast(m_Obstacle).OnTransformReset();
+		m_Drone.SetOrigin("100 100 100");
+		m_Flight = MUR_DroneFlightComponent.Cast(m_Drone.FindComponent(MUR_DroneFlightComponent));
+		if (!m_Flight || !m_Flight.StartFlight("108 100 100"))
+			SetFailure("Flight could not start.");
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForFailure()
+	{
+		return m_Flight.IsFailed();
+	}
+
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		AssertTrue(!m_Flight.IsComplete(), "A blocked flight must fail rather than report completion.");
+	}
+
+	[TestStep(TestStage.TearDown)]
+	void TearDown_DeleteFixtures()
+	{
+		if (m_Drone) SCR_EntityHelper.DeleteEntityAndChildren(m_Drone);
+		if (m_Obstacle) SCR_EntityHelper.DeleteEntityAndChildren(m_Obstacle);
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 15)]
+class MUR_VioletFlight_BlockedClimb_Fails : SCR_AutotestCaseBase
+{
+	protected IEntity m_Drone;
+	protected IEntity m_Obstacle;
+	protected IEntity m_Ceiling;
+	protected MUR_DroneFlightComponent m_Flight;
+
+	[TestStep(TestStage.Setup)]
+	void Setup_Flight()
+	{
+		Resource obstacle = Resource.Load("{9019FBEC2B39E7B5}Prefabs/Tests/MUR_Obstacle.et");
+		Resource drone = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
+		if (!obstacle || !obstacle.IsValid() || !drone || !drone.IsValid())
+		{
+			SetFailure("Flight fixtures could not be loaded.");
+			return;
+		}
+		m_Drone = GetGame().SpawnEntityPrefab(drone, GetGame().GetWorld());
+		m_Obstacle = GetGame().SpawnEntityPrefab(obstacle, GetGame().GetWorld());
+		m_Ceiling = GetGame().SpawnEntityPrefab(obstacle, GetGame().GetWorld());
+		if (!m_Drone || !m_Obstacle || !m_Ceiling)
+		{
+			SetFailure("Flight fixtures could not be spawned.");
+			return;
+		}
+		m_Obstacle.SetOrigin("104 110 100");
+		m_Obstacle.Update();
+		GenericEntity.Cast(m_Obstacle).OnTransformReset();
+		m_Ceiling.SetOrigin("103 112 100");
+		m_Ceiling.Update();
+		GenericEntity.Cast(m_Ceiling).OnTransformReset();
+		m_Drone.SetOrigin("100 100 100");
+		m_Flight = MUR_DroneFlightComponent.Cast(m_Drone.FindComponent(MUR_DroneFlightComponent));
+		if (!m_Flight || !m_Flight.StartFlight("108 100 100"))
+			SetFailure("Flight could not start.");
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForFailure()
+	{
+		return m_Flight.IsFailed();
+	}
+
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		AssertTrue(!m_Flight.IsComplete(), "A blocked climb must fail rather than report completion.");
+	}
+
+	[TestStep(TestStage.TearDown)]
+	void TearDown_DeleteFixtures()
+	{
+		if (m_Drone) SCR_EntityHelper.DeleteEntityAndChildren(m_Drone);
+		if (m_Obstacle) SCR_EntityHelper.DeleteEntityAndChildren(m_Obstacle);
+		if (m_Ceiling) SCR_EntityHelper.DeleteEntityAndChildren(m_Ceiling);
 	}
 }
 

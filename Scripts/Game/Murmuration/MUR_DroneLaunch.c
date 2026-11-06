@@ -23,7 +23,8 @@ class MUR_DroneLaunch
 				continue;
 			TraceSphere clearance = new TraceSphere();
 			clearance.Radius = 0.2;
-			clearance.Start = candidate + "0 2 0";
+			MUR_FlightRoute candidateRoute = new MUR_FlightRoute(candidate, scoutPoint);
+			clearance.Start = candidateRoute.GetDestination();
 			clearance.End = candidate;
 			clearance.Flags = TraceFlags.DEFAULT | TraceFlags.ANY_CONTACT;
 			if (world.TraceMove(clearance, null) < 1.0)

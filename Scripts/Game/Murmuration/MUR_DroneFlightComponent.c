@@ -39,6 +39,11 @@ class MUR_DroneFlightComponent : ScriptComponent
 		return m_Route && m_Route.GetPhase() == MUR_FlightPhase.COMPLETE;
 	}
 
+	bool IsFailed()
+	{
+		return m_Route && m_Route.GetPhase() == MUR_FlightPhase.FAILED;
+	}
+
 	protected void OnPositionChanged()
 	{
 		if (Replication.IsServer() || !m_bHasPosition)
@@ -85,6 +90,12 @@ class MUR_DroneFlightComponent : ScriptComponent
 			{
 				m_vClimbTarget = position + "0 5 0";
 				m_bClimbing = true;
+			}
+			else
+			{
+				m_Route.Fail();
+				ClearEventMask(owner, EntityEvent.FRAME);
+				Print("MUR flight failed: blocked with no clear climb available");
 			}
 			return;
 		}
