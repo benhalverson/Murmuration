@@ -1,3 +1,127 @@
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 25)]
+class MUR_DroneLaunch_ClearGround_LandsOnTerrain : SCR_AutotestCaseBase
+{
+	protected IEntity m_Requester;
+	protected IEntity m_Drone;
+	protected MUR_DroneFlightComponent m_Flight;
+
+	[TestStep(TestStage.Setup)]
+	void Setup_Launch()
+	{
+		Resource prefab = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
+		if (!prefab || !prefab.IsValid())
+		{
+			SetFailure("Requester fixture could not be loaded.");
+			return;
+		}
+		m_Requester = GetGame().SpawnEntityPrefab(prefab, GetGame().GetWorld());
+		if (!m_Requester)
+		{
+			SetFailure("Requester fixture could not be spawned.");
+			return;
+		}
+		vector position = "100 0 100";
+		position[1] = GetGame().GetWorld().GetSurfaceY(position[0], position[2]);
+		m_Requester.SetOrigin(position);
+		m_Drone = MUR_DroneLaunch.LaunchNear(m_Requester, position + "4 0 0");
+		if (!m_Drone)
+		{
+			SetFailure("A clear-ground launch should spawn a drone.");
+			return;
+		}
+		m_Flight = MUR_DroneFlightComponent.Cast(m_Drone.FindComponent(MUR_DroneFlightComponent));
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForLanding()
+	{
+		return m_Flight && m_Flight.IsComplete();
+	}
+
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		vector position = m_Drone.GetOrigin();
+		float ground = GetGame().GetWorld().GetSurfaceY(position[0], position[2]);
+		AssertTrue(Math.AbsFloat(position[1] - ground - 0.01) < 0.02, "Landed drone origin should be close to the terrain.");
+	}
+
+	[TestStep(TestStage.TearDown)]
+	void TearDown_DeleteFixtures()
+	{
+		if (m_Drone) RplComponent.DeleteRplEntity(m_Drone, false);
+		if (m_Requester) RplComponent.DeleteRplEntity(m_Requester, false);
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 25)]
+class MUR_DroneLaunch_BlockedTouchdown_Fails : SCR_AutotestCaseBase
+{
+	protected IEntity m_Requester;
+	protected IEntity m_Drone;
+	protected IEntity m_Obstacle;
+	protected MUR_DroneFlightComponent m_Flight;
+
+	[TestStep(TestStage.Setup)]
+	void Setup_Launch()
+	{
+		Resource dronePrefab = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
+		Resource obstaclePrefab = Resource.Load("{9019FBEC2B39E7B5}Prefabs/Tests/MUR_Obstacle.et");
+		if (!dronePrefab || !dronePrefab.IsValid() || !obstaclePrefab || !obstaclePrefab.IsValid())
+		{
+			SetFailure("Touchdown fixtures could not be loaded.");
+			return;
+		}
+		m_Requester = GetGame().SpawnEntityPrefab(dronePrefab, GetGame().GetWorld());
+		if (!m_Requester)
+		{
+			SetFailure("Requester could not be spawned.");
+			return;
+		}
+		vector position = "100 0 100";
+		position[1] = GetGame().GetWorld().GetSurfaceY(position[0], position[2]);
+		m_Requester.SetOrigin(position);
+		m_Drone = MUR_DroneLaunch.LaunchNear(m_Requester, position + "4 0 0");
+		if (!m_Drone)
+		{
+			SetFailure("Flight could not start.");
+			return;
+		}
+		m_Flight = MUR_DroneFlightComponent.Cast(m_Drone.FindComponent(MUR_DroneFlightComponent));
+		m_Obstacle = GetGame().SpawnEntityPrefab(obstaclePrefab, GetGame().GetWorld());
+		if (!m_Obstacle)
+		{
+			SetFailure("Touchdown obstacle could not be spawned.");
+			return;
+		}
+		vector obstaclePosition = m_Drone.GetOrigin();
+		obstaclePosition[1] = position[1] - 0.96;
+		m_Obstacle.SetOrigin(obstaclePosition);
+		m_Obstacle.Update();
+		GenericEntity.Cast(m_Obstacle).OnTransformReset();
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForFailure()
+	{
+		return m_Flight && m_Flight.IsFailed();
+	}
+
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		AssertTrue(!m_Flight.IsComplete(), "An obstructed touchdown must fail instead of reporting completion.");
+	}
+
+	[TestStep(TestStage.TearDown)]
+	void TearDown_DeleteFixtures()
+	{
+		if (m_Drone) RplComponent.DeleteRplEntity(m_Drone, false);
+		if (m_Requester) RplComponent.DeleteRplEntity(m_Requester, false);
+		if (m_Obstacle) SCR_EntityHelper.DeleteEntityAndChildren(m_Obstacle);
+	}
+}
+
 [Test(suite: MUR_FlightRouteSuite, timeoutS: 5)]
 class MUR_VioletPrefab_Spawn_HasFlightComponent : SCR_AutotestCaseBase
 {
@@ -49,7 +173,7 @@ class MUR_VioletFlight_ClearPath_ReturnsToLaunch : SCR_AutotestCaseBase
 		}
 		m_Drone.SetOrigin(m_vLaunch);
 		m_Flight = MUR_DroneFlightComponent.Cast(m_Drone.FindComponent(MUR_DroneFlightComponent));
-		if (!m_Flight || !m_Flight.StartFlight(m_vLaunch + "2 0 0"))
+		if (!m_Flight || !m_Flight.StartFlight(m_vLaunch + "2 0 0", 0.24))
 		{
 			SCR_EntityHelper.DeleteEntityAndChildren(m_Drone);
 			m_Drone = null;
@@ -68,7 +192,7 @@ class MUR_VioletFlight_ClearPath_ReturnsToLaunch : SCR_AutotestCaseBase
 	[TestStep(TestStage.Main)]
 	void Execute_Assert()
 	{
-		AssertTrue(m_bMoved && vector.Distance(m_Drone.GetOrigin(), m_vLaunch) < 0.2, "Drone must move and return to launch.");
+		AssertTrue(m_bMoved && vector.Distance(m_Drone.GetOrigin(), m_vLaunch - "0 0.24 0") < 0.02, "Drone must move, return, and settle below the launch clearance.");
 	}
 
 	[TestStep(TestStage.TearDown)]

@@ -13,6 +13,8 @@ the run's `autotest.log` under the active profile's `logs` directory (normally
 game may first enter the main menu before loading the test scenario. The addon
 must be listed with `-addons`: using `-gproj` alone loaded the scripts initially
 but lost the addon when the runner switched scenarios.
+Add `-noFocus -forceUpdate` when running the diagnostic game alongside
+Workbench without taking focus from the editor.
 
 The suite checks waypoint state changes, prefab spawning, a launch near a
 controlled entity used as a requester fixture, rejection of an out-of-range
@@ -39,12 +41,14 @@ successfully, including the route-state and clear-flight tests; the obstacle
 flight timed out after 30 seconds. A separate run of that obstacle test also
 timed out. This is evidence of a Workbench limitation or failure in that
 environment, not proof of its cause. On game diagnostic 1.9.0.37, the current
-suite's 12 tests passed via `-autotest`; that result does not establish that the
+suite's 14 tests passed via `-autotest`; that result does not establish that the
 same suite passes in Workbench.
 
 Launch selection checks the full takeoff corridor. If an obstacle blocks a
 flight and no climb is available, the flight stops at its current position and
 reports failure; it does not automatically land or return.
+The terrain-touchdown and blocked-touchdown checks passed in the automated game
+suite; the new touchdown behavior has not been observed from a separate client.
 
 The VIOLET mesh was exported from the original CAD assembly via STEP and STL,
 then imported into Workbench as an FBX. This conversion merges the assembly into
