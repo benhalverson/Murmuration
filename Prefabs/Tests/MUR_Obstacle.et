@@ -1,0 +1,8 @@
+GenericEntity : "{7E2EC66747A3FBA3}Prefabs/Props/Crates/CrateWooden_02/CrateWooden_02_base.et" {
+ ID "A39802E278DE0151"
+ components {
+  MeshObject "{5872F0EB7FA40561}" {
+   Object "{569C9B8C543D3020}Assets/Props/Crates/CrateWooden_02/CrateWooden_02_1x1x1.xob"
+  }
+ }
+}
