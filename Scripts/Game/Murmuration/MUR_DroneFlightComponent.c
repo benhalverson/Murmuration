@@ -71,6 +71,7 @@ class MUR_DroneFlightComponent : ScriptComponent
 		{
 			if (m_fTouchdownDrop > 0)
 			{
+				vector touchdown = m_vTouchdownPosition;
 				// Check the mesh footprint separately from the larger in-flight sphere.
 				TraceBox touchdownTrace = new TraceBox();
 				touchdownTrace.Mins = "-0.15 -0.009 -0.135";
@@ -78,17 +79,22 @@ class MUR_DroneFlightComponent : ScriptComponent
 				touchdownTrace.Start = position;
 				touchdownTrace.End = m_vTouchdownPosition;
 				touchdownTrace.Exclude = owner;
-				touchdownTrace.Flags = TraceFlags.DEFAULT | TraceFlags.ANY_CONTACT;
-				if (GetGame().GetWorld().TraceMove(touchdownTrace, null) < 1.0)
+				touchdownTrace.Flags = TraceFlags.DEFAULT;
+				float touchdownFraction = GetGame().GetWorld().TraceMove(touchdownTrace, null);
+				if (touchdownFraction < 1.0)
 				{
-					m_Route.Fail();
-					ClearEventMask(owner, EntityEvent.FRAME);
-					Print("MUR flight failed: touchdown footprint is blocked");
-					return;
+					touchdown = vector.Lerp(position, m_vTouchdownPosition, Math.Max(0, touchdownFraction - 0.005));
+					if (!GenericTerrainEntity.Cast(touchdownTrace.TraceEnt) || touchdownTrace.TraceNorm[1] < 0.7 || touchdown[1] - m_vTouchdownPosition[1] > 0.05)
+					{
+						m_Route.Fail();
+						ClearEventMask(owner, EntityEvent.FRAME);
+						Print("MUR flight failed: touchdown footprint is blocked");
+						return;
+					}
 				}
-				owner.SetOrigin(m_vTouchdownPosition);
+				owner.SetOrigin(touchdown);
 				owner.Update();
-				m_vReplicatedPosition = m_vTouchdownPosition;
+				m_vReplicatedPosition = touchdown;
 				Replication.BumpMe();
 				RplComponent touchdownReplication = RplComponent.Cast(owner.FindComponent(RplComponent));
 				if (touchdownReplication)

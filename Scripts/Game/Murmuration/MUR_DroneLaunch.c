@@ -14,12 +14,22 @@ class MUR_DroneLaunch
 		vector playerPosition = player.GetOrigin();
 		array<vector> offsets = {"2 0 0", "-2 0 0", "0 0 2", "0 0 -2", "4 0 0", "-4 0 0", "0 0 4", "0 0 -4"};
 		vector spawnPoint;
+		float touchdownDrop;
 		bool foundClearSpot;
 		foreach (vector offset : offsets)
 		{
 			vector candidate = playerPosition + offset;
 			candidate[1] = world.GetSurfaceY(candidate[0], candidate[2]) + SPAWN_GROUND_CLEARANCE;
 			if (Math.AbsFloat(candidate[1] - playerPosition[1]) > 2.0)
+				continue;
+			// Keep the level mesh above the highest terrain at its footprint corners.
+			float highestGround = world.GetSurfaceY(candidate[0], candidate[2]);
+			highestGround = Math.Max(highestGround, world.GetSurfaceY(candidate[0] - 0.15, candidate[2] - 0.135));
+			highestGround = Math.Max(highestGround, world.GetSurfaceY(candidate[0] - 0.15, candidate[2] + 0.135));
+			highestGround = Math.Max(highestGround, world.GetSurfaceY(candidate[0] + 0.15, candidate[2] - 0.135));
+			highestGround = Math.Max(highestGround, world.GetSurfaceY(candidate[0] + 0.15, candidate[2] + 0.135));
+			float touchdownHeight = highestGround + TOUCHDOWN_GROUND_CLEARANCE;
+			if (touchdownHeight >= candidate[1])
 				continue;
 			vector displacement = scoutPoint - candidate;
 			displacement[1] = 0;
@@ -34,6 +44,7 @@ class MUR_DroneLaunch
 			if (world.TraceMove(clearance, null) < 1.0)
 				continue;
 			spawnPoint = candidate;
+			touchdownDrop = candidate[1] - touchdownHeight;
 			foundClearSpot = true;
 			break;
 		}
@@ -61,7 +72,7 @@ class MUR_DroneLaunch
 		}
 
 		MUR_DroneFlightComponent flight = MUR_DroneFlightComponent.Cast(drone.FindComponent(MUR_DroneFlightComponent));
-		if (!flight || !flight.StartFlight(scoutPoint, SPAWN_GROUND_CLEARANCE - TOUCHDOWN_GROUND_CLEARANCE))
+		if (!flight || !flight.StartFlight(scoutPoint, touchdownDrop))
 		{
 			Print("MUR launch rejected: flight component could not start");
 			RplComponent.DeleteRplEntity(drone, false);

@@ -48,7 +48,10 @@ Launch selection checks the full takeoff corridor. If an obstacle blocks a
 flight and no climb is available, the flight stops at its current position and
 reports failure; it does not automatically land or return.
 The terrain-touchdown and blocked-touchdown checks passed in the automated game
-suite; the new touchdown behavior has not been observed from a separate client.
+suite. A temporary dedicated-server probe on sloped terrain reported a final
+position of `<7312, 42.5223, 7645>`; a separate client logged the same final
+position. The sampled terrain height at the center was 42.4688 m. This checks
+replication of the final position, not the model's visual contact with terrain.
 
 The VIOLET mesh was exported from the original CAD assembly via STEP and STL,
 then imported into Workbench as an FBX. This conversion merges the assembly into
