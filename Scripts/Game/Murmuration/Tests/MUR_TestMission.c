@@ -6,6 +6,13 @@ modded class SCR_BaseGameMode
 		super.OnPlayerSpawned(playerId, controlledEntity);
 		if (!Replication.IsServer() || !controlledEntity)
 			return;
+		string swarmDaylight;
+		if (System.GetCLIParam("murSwarmDaylight", swarmDaylight) && swarmDaylight == "1")
+		{
+			ChimeraWorld swarmWorld = GetGame().GetWorld();
+			TimeAndWeatherManagerEntity swarmTimeManager = swarmWorld.GetTimeAndWeatherManager();
+			if (swarmTimeManager) swarmTimeManager.SetTime(new TimeContainer(12, 0, 0));
+		}
 
 		string offsetText;
 		if (!System.GetCLIParam("murTestScout", offsetText))

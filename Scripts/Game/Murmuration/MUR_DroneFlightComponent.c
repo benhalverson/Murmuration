@@ -18,12 +18,13 @@ class MUR_DroneFlightComponent : ScriptComponent
 	protected static const float SPEED = 4.0;
 	protected static const float ARRIVAL_RADIUS = 0.1;
 
-	bool StartFlight(vector scoutPoint, float touchdownDrop = 0)
+	bool StartFlight(vector scoutPoint, float touchdownDrop = 0, array<vector> searchWaypoints = null)
 	{
 		if (!Replication.IsServer() || m_Route)
 			return false;
 
 		m_Route = new MUR_FlightRoute(GetOwner().GetOrigin(), scoutPoint);
+		m_Route.ConfigureSearch(searchWaypoints);
 		m_fTouchdownDrop = Math.Max(0, touchdownDrop);
 		m_vTouchdownPosition = GetOwner().GetOrigin();
 		m_vTouchdownPosition[1] = m_vTouchdownPosition[1] - m_fTouchdownDrop;
@@ -47,6 +48,12 @@ class MUR_DroneFlightComponent : ScriptComponent
 	bool IsFailed()
 	{
 		return m_Route && m_Route.GetPhase() == MUR_FlightPhase.FAILED;
+	}
+
+	void ReturnHome()
+	{
+		if (Replication.IsServer() && m_Route)
+			m_Route.ReturnHome();
 	}
 
 	protected void OnPositionChanged()

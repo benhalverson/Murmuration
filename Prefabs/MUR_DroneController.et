@@ -1,0 +1,7 @@
+GenericEntity : "{73950FBA2D7DB5C5}Prefabs/Items/Equipment/Radios/Radio_ANPRC68.et" {
+ ID "A39802E278DE0201"
+ components {
+  MUR_DroneControllerComponent "{A39802E278DE0202}" {
+  }
+ }
+}

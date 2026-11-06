@@ -3,6 +3,7 @@ enum MUR_FlightPhase
 {
 	TAKEOFF,
 	OUTBOUND,
+	SEARCH,
 	RETURNING,
 	LANDING,
 	COMPLETE,
@@ -16,6 +17,8 @@ class MUR_FlightRoute
 	protected float m_fFlightAltitude;
 	protected float m_fMaxFlightAltitude;
 	protected MUR_FlightPhase m_ePhase;
+	protected ref array<vector> m_SearchWaypoints = {};
+	protected int m_iSearchWaypoint;
 
 	void MUR_FlightRoute(vector launchPoint, vector scoutPoint)
 	{
@@ -36,9 +39,21 @@ class MUR_FlightRoute
 		m_ePhase = MUR_FlightPhase.FAILED;
 	}
 
+	void ConfigureSearch(array<vector> waypoints)
+	{
+		if (m_ePhase == MUR_FlightPhase.TAKEOFF && waypoints)
+			m_SearchWaypoints.Copy(waypoints);
+	}
+
+	void ReturnHome()
+	{
+		if (m_ePhase != MUR_FlightPhase.COMPLETE && m_ePhase != MUR_FlightPhase.FAILED && m_ePhase != MUR_FlightPhase.LANDING)
+			m_ePhase = MUR_FlightPhase.RETURNING;
+	}
+
 	bool RaiseCruiseAltitude(float altitude)
 	{
-		if ((m_ePhase != MUR_FlightPhase.OUTBOUND && m_ePhase != MUR_FlightPhase.RETURNING) || altitude > m_fMaxFlightAltitude)
+		if ((m_ePhase != MUR_FlightPhase.OUTBOUND && m_ePhase != MUR_FlightPhase.SEARCH && m_ePhase != MUR_FlightPhase.RETURNING) || altitude > m_fMaxFlightAltitude)
 			return false;
 		m_fFlightAltitude = Math.Max(m_fFlightAltitude, altitude);
 		return true;
@@ -47,6 +62,12 @@ class MUR_FlightRoute
 	vector GetDestination()
 	{
 		vector destination;
+		if (m_ePhase == MUR_FlightPhase.SEARCH && !m_SearchWaypoints.IsEmpty())
+		{
+			destination = m_SearchWaypoints[m_iSearchWaypoint];
+			destination[1] = m_fFlightAltitude;
+			return destination;
+		}
 		if (m_ePhase == MUR_FlightPhase.TAKEOFF || m_ePhase == MUR_FlightPhase.RETURNING)
 		{
 			destination = m_vLaunchPoint;
@@ -76,7 +97,18 @@ class MUR_FlightRoute
 		if (m_ePhase == MUR_FlightPhase.TAKEOFF)
 			m_ePhase = MUR_FlightPhase.OUTBOUND;
 		else if (m_ePhase == MUR_FlightPhase.OUTBOUND)
-			m_ePhase = MUR_FlightPhase.RETURNING;
+		{
+			if (m_SearchWaypoints.IsEmpty())
+				m_ePhase = MUR_FlightPhase.RETURNING;
+			else
+				m_ePhase = MUR_FlightPhase.SEARCH;
+		}
+		else if (m_ePhase == MUR_FlightPhase.SEARCH)
+		{
+			m_iSearchWaypoint++;
+			if (m_iSearchWaypoint >= m_SearchWaypoints.Count())
+				m_iSearchWaypoint = 0;
+		}
 		else if (m_ePhase == MUR_FlightPhase.RETURNING)
 			m_ePhase = MUR_FlightPhase.LANDING;
 		else
