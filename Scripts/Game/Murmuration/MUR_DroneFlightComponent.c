@@ -9,6 +9,8 @@ class MUR_DroneFlightComponent : ScriptComponent
 	protected bool m_bObstructed;
 	protected bool m_bClimbing;
 	protected vector m_vClimbTarget;
+	protected float m_fTouchdownDrop;
+	protected vector m_vTouchdownPosition;
 	[RplProp(onRplName: "OnPositionChanged")]
 	protected vector m_vReplicatedPosition;
 	[RplProp(onRplName: "OnPositionChanged")]
@@ -16,12 +18,15 @@ class MUR_DroneFlightComponent : ScriptComponent
 	protected static const float SPEED = 4.0;
 	protected static const float ARRIVAL_RADIUS = 0.1;
 
-	bool StartFlight(vector scoutPoint)
+	bool StartFlight(vector scoutPoint, float touchdownDrop = 0)
 	{
 		if (!Replication.IsServer() || m_Route)
 			return false;
 
 		m_Route = new MUR_FlightRoute(GetOwner().GetOrigin(), scoutPoint);
+		m_fTouchdownDrop = Math.Max(0, touchdownDrop);
+		m_vTouchdownPosition = GetOwner().GetOrigin();
+		m_vTouchdownPosition[1] = m_vTouchdownPosition[1] - m_fTouchdownDrop;
 		m_vReplicatedPosition = GetOwner().GetOrigin();
 		m_bHasPosition = true;
 		Replication.BumpMe();
@@ -64,6 +69,37 @@ class MUR_DroneFlightComponent : ScriptComponent
 			m_Route.Update(position, ARRIVAL_RADIUS);
 		if (m_Route.GetPhase() == MUR_FlightPhase.COMPLETE)
 		{
+			if (m_fTouchdownDrop > 0)
+			{
+				vector touchdown = m_vTouchdownPosition;
+				// Check the mesh footprint separately from the larger in-flight sphere.
+				TraceBox touchdownTrace = new TraceBox();
+				touchdownTrace.Mins = "-0.15 -0.009 -0.135";
+				touchdownTrace.Maxs = "0.15 0.005 0.135";
+				touchdownTrace.Start = position;
+				touchdownTrace.End = m_vTouchdownPosition;
+				touchdownTrace.Exclude = owner;
+				touchdownTrace.Flags = TraceFlags.DEFAULT;
+				float touchdownFraction = GetGame().GetWorld().TraceMove(touchdownTrace, null);
+				if (touchdownFraction < 1.0)
+				{
+					touchdown = vector.Lerp(position, m_vTouchdownPosition, Math.Max(0, touchdownFraction - 0.005));
+					if (!GenericTerrainEntity.Cast(touchdownTrace.TraceEnt) || touchdownTrace.TraceNorm[1] < 0.7 || touchdown[1] - m_vTouchdownPosition[1] > 0.05)
+					{
+						m_Route.Fail();
+						ClearEventMask(owner, EntityEvent.FRAME);
+						Print("MUR flight failed: touchdown footprint is blocked");
+						return;
+					}
+				}
+				owner.SetOrigin(touchdown);
+				owner.Update();
+				m_vReplicatedPosition = touchdown;
+				Replication.BumpMe();
+				RplComponent touchdownReplication = RplComponent.Cast(owner.FindComponent(RplComponent));
+				if (touchdownReplication)
+					touchdownReplication.ForceNodeMovement(position);
+			}
 			ClearEventMask(owner, EntityEvent.FRAME);
 			return;
 		}

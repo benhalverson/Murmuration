@@ -8,10 +8,13 @@ ArmaReforgerSteamDiag.exe -addonsDir "<directory containing murmuration>" -addon
 ```
 
 Replace the placeholder with the actual parent directory. The suite reports to
-the run's `autotest.log` under `Documents/My Games/ArmaReforger/logs`. The
+the run's `autotest.log` under the active profile's `logs` directory (normally
+`Documents/My Games/ArmaReforger/logs`). The
 game may first enter the main menu before loading the test scenario. The addon
 must be listed with `-addons`: using `-gproj` alone loaded the scripts initially
 but lost the addon when the runner switched scenarios.
+Add `-noFocus -forceUpdate` when running the diagnostic game alongside
+Workbench without taking focus from the editor.
 
 The suite checks waypoint state changes, prefab spawning, a launch near a
 controlled entity used as a requester fixture, rejection of an out-of-range
@@ -20,11 +23,35 @@ position when a crate blocks the first corridor, plus short flights with a clear
 in the diagnostic test world. The flight obstacle test checks that the crate blocks a
 trace, then checks that the drone climbs and returns. It does not establish
 general obstacle navigation, a real player launch, or complete multiplayer
-behavior. Running the test through Workbench's test plugin is not yet verified.
+behavior.
+
+## Workbench
+
+Open a world and the Murmuration project in Workbench. In Script Editor, open
+`Scripts/Game/Murmuration/Tests/MUR_FlightRouteTest.c`, put the cursor inside
+the desired test class, and choose **Plugins → Run test** (F4). To run the
+suite, open `MUR_FlightRouteSuite.c` and put the cursor inside the suite class.
+The test runner opens the World Editor and writes `autotest.log` to the active
+Workbench profile's `logs` directory. See the official [Autotest Framework
+documentation](https://community.bistudio.com/wiki/Arma_Reforger:Autotest_Framework)
+for the Workbench and command-line runners.
+
+On Workbench 1.8.0.13, an earlier revision of the suite ran nine tests
+successfully, including the route-state and clear-flight tests; the obstacle
+flight timed out after 30 seconds. A separate run of that obstacle test also
+timed out. This is evidence of a Workbench limitation or failure in that
+environment, not proof of its cause. On game diagnostic 1.9.0.37, the current
+suite's 14 tests passed via `-autotest`; that result does not establish that the
+same suite passes in Workbench.
 
 Launch selection checks the full takeoff corridor. If an obstacle blocks a
 flight and no climb is available, the flight stops at its current position and
 reports failure; it does not automatically land or return.
+The terrain-touchdown and blocked-touchdown checks passed in the automated game
+suite. A temporary dedicated-server probe on sloped terrain reported a final
+position of `<7312, 42.5223, 7645>`; a separate client logged the same final
+position. The sampled terrain height at the center was 42.4688 m. This checks
+replication of the final position, not the model's visual contact with terrain.
 
 The VIOLET mesh was exported from the original CAD assembly via STEP and STL,
 then imported into Workbench as an FBX. This conversion merges the assembly into
