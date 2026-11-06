@@ -33,7 +33,9 @@ class MUR_SwarmPlanValidator
 				// Negated comparison also rejects non-finite distances.
 				if (!(vector.Distance(waypoint, scoutPoint) <= 500.0))
 					return false;
-				if (vector.Distance(waypoint, route.m_Waypoints[0]) > 1.0)
+				vector horizontal = waypoint - route.m_Waypoints[0];
+				horizontal[1] = 0;
+				if (horizontal.Length() > 1.0)
 					moves = true;
 			}
 			if (!moves) return false;
@@ -49,7 +51,9 @@ class MUR_SwarmPlanValidator
 				bool same = true;
 				for (int k = 0; k < a.Count(); k++)
 				{
-					if (vector.Distance(a[k], b[k]) > 0.1)
+					vector horizontal = a[k] - b[k];
+					horizontal[1] = 0;
+					if (horizontal.Length() > 0.1)
 					{
 						same = false;
 						break;

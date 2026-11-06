@@ -27,7 +27,9 @@ behavior.
 
 It also checks swarm route validation, malformed plans, planning timeouts,
 unavailable Ollama, distinct launch sites, search-route cycling, and the
-controller prefab. These tests do not replace the multiplayer map test.
+controller prefab. Mission lifecycle tests check failed and lost drones,
+partial and successful returns, and delayed cleanup. These tests do not
+replace the multiplayer map test.
 
 ## Workbench
 
@@ -45,7 +47,7 @@ successfully, including the route-state and clear-flight tests; the obstacle
 flight timed out after 30 seconds. A separate run of that obstacle test also
 timed out. This is evidence of a Workbench limitation or failure in that
 environment, not proof of its cause. On game diagnostic 1.9.0.37, the current
-suite's 29 tests passed via `-autotest`; that result does not establish that the
+suite's 34 tests passed via `-autotest`; that result does not establish that the
 same suite passes in Workbench.
 
 Launch selection checks the full takeoff corridor. If a climb is blocked, the

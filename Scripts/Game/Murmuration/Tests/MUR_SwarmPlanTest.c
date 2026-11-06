@@ -75,6 +75,34 @@ class MUR_SwarmPlan_StationaryRoute_IsRejected : SCR_AutotestCaseBase
 }
 
 [Test(suite: MUR_FlightRouteSuite, timeoutS: 5)]
+class MUR_SwarmPlan_VerticalOnlyRoute_IsRejected : SCR_AutotestCaseBase
+{
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		MUR_SwarmPlan plan = new MUR_SwarmPlan();
+		plan.AddRoute({"100 0 0", "100 10 0"});
+		plan.AddRoute({"0 0 100", "0 0 150"});
+		plan.AddRoute({"-100 0 0", "-150 0 0"});
+		AssertTrue(!MUR_SwarmPlanValidator.IsValid(plan, "0 0 0"), "Changing altitude alone cannot search the area.");
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 5)]
+class MUR_SwarmPlan_AltitudeOnlyRouteDifference_IsRejected : SCR_AutotestCaseBase
+{
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		MUR_SwarmPlan plan = new MUR_SwarmPlan();
+		plan.AddRoute({"100 0 0", "150 0 0"});
+		plan.AddRoute({"100 10 0", "150 10 0"});
+		plan.AddRoute({"0 0 100", "0 0 150"});
+		AssertTrue(!MUR_SwarmPlanValidator.IsValid(plan, "0 0 0"), "Changing altitude alone cannot make search routes distinct.");
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 5)]
 class MUR_PlanningAttempt_TimeoutRejectsLatePlan : SCR_AutotestCaseBase
 {
 	[TestStep(TestStage.Main)]
@@ -134,6 +162,186 @@ class MUR_TestOllamaListener : MUR_OllamaListener
 		m_Plan = plan;
 		m_sError = error;
 		m_bFinished = true;
+	}
+}
+
+class MUR_TestSwarmMissionListener : MUR_SwarmMissionListener
+{
+	bool m_bFinished;
+	string m_sMessage;
+
+	override void OnMissionStatus(string message, bool active)
+	{
+		if (!active) { m_sMessage = message; m_bFinished = true; }
+	}
+}
+
+// Starts the real server-side mission lifecycle with spawned flight fixtures.
+class MUR_TestSwarmMission : MUR_SwarmMission
+{
+	void StartWithFlights(array<IEntity> drones, MUR_SwarmMissionListener listener)
+	{
+		m_Drones.Copy(drones);
+		m_Listener = listener;
+		m_vScoutPoint = "2000 100 2000";
+		UpdateMission();
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 45)]
+class MUR_SwarmMission_FailedAndLostFlights_ReportFailure : SCR_AutotestCaseBase
+{
+	protected ref array<IEntity> m_Drones = {};
+	protected ref array<IEntity> m_Obstacles = {};
+	protected ref MUR_TestSwarmMission m_Mission;
+	protected ref MUR_TestSwarmMissionListener m_Listener;
+
+	[TestStep(TestStage.Setup)]
+	void Setup_Flights()
+	{
+		Resource dronePrefab = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
+		Resource obstaclePrefab = Resource.Load("{9019FBEC2B39E7B5}Prefabs/Tests/MUR_Obstacle.et");
+		if (!dronePrefab || !dronePrefab.IsValid() || !obstaclePrefab || !obstaclePrefab.IsValid()) { SetFailure("Could not load the fixtures."); return; }
+		for (int i = 0; i < 3; i++)
+		{
+			IEntity drone = GetGame().SpawnEntityPrefab(dronePrefab, GetGame().GetWorld());
+			IEntity obstacle = GetGame().SpawnEntityPrefab(obstaclePrefab, GetGame().GetWorld());
+			if (!drone || !obstacle) { SetFailure("Could not spawn the fixtures."); return; }
+			m_Drones.Insert(drone);
+			m_Obstacles.Insert(obstacle);
+			vector position = Vector(100 + i * 10, 100, 100);
+			drone.SetOrigin(position);
+			obstacle.SetOrigin(position + "0 2 0");
+			obstacle.Update();
+			GenericEntity.Cast(obstacle).OnTransformReset();
+			MUR_DroneFlightComponent flight = MUR_DroneFlightComponent.Cast(drone.FindComponent(MUR_DroneFlightComponent));
+			if (!flight || !flight.StartFlight(position + "20 0 0")) { SetFailure("Could not start a flight."); return; }
+		}
+		m_Listener = new MUR_TestSwarmMissionListener();
+		m_Mission = new MUR_TestSwarmMission();
+		m_Mission.StartWithFlights(m_Drones, m_Listener);
+		RplComponent.DeleteRplEntity(m_Drones[0], false);
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForOutcome() { return m_Listener && m_Listener.m_bFinished; }
+
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		AssertTrue(m_Listener.m_sMessage.Contains("Scouting failed") && m_Listener.m_sMessage.Contains("3 failed or lost"), "The final status must count failed and lost flights before reaching the area.");
+		AssertTrue(m_Drones[1] && m_Drones[2], "Finished drones should remain visible briefly.");
+		m_Mission = null;
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForCleanup() { return !m_Drones[1] && !m_Drones[2]; }
+
+	[TestStep(TestStage.TearDown)]
+	void TearDown_DeleteFixtures()
+	{
+		foreach (IEntity drone : m_Drones) if (drone) RplComponent.DeleteRplEntity(drone, false);
+		foreach (IEntity obstacle : m_Obstacles) if (obstacle) SCR_EntityHelper.DeleteEntityAndChildren(obstacle);
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 35)]
+class MUR_SwarmMission_PartialReturn_ReportsLoss : SCR_AutotestCaseBase
+{
+	protected ref array<IEntity> m_Drones = {};
+	protected IEntity m_Obstacle;
+	protected ref MUR_TestSwarmMission m_Mission;
+	protected ref MUR_TestSwarmMissionListener m_Listener;
+
+	[TestStep(TestStage.Setup)]
+	void Setup_Flights()
+	{
+		Resource dronePrefab = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
+		Resource obstaclePrefab = Resource.Load("{9019FBEC2B39E7B5}Prefabs/Tests/MUR_Obstacle.et");
+		if (!dronePrefab || !dronePrefab.IsValid() || !obstaclePrefab || !obstaclePrefab.IsValid()) { SetFailure("Could not load the fixtures."); return; }
+		m_Obstacle = GetGame().SpawnEntityPrefab(obstaclePrefab, GetGame().GetWorld());
+		if (!m_Obstacle) { SetFailure("Could not spawn the obstacle."); return; }
+		m_Obstacle.SetOrigin("100 102 100");
+		m_Obstacle.Update();
+		GenericEntity.Cast(m_Obstacle).OnTransformReset();
+		for (int i = 0; i < 3; i++)
+		{
+			IEntity drone = GetGame().SpawnEntityPrefab(dronePrefab, GetGame().GetWorld());
+			if (!drone) { SetFailure("Could not spawn a drone."); return; }
+			m_Drones.Insert(drone);
+			vector position = Vector(100 + i * 10, 100, 100);
+			drone.SetOrigin(position);
+			MUR_DroneFlightComponent flight = MUR_DroneFlightComponent.Cast(drone.FindComponent(MUR_DroneFlightComponent));
+			if (!flight || !flight.StartFlight(position + "2 0 0")) { SetFailure("Could not start a flight."); return; }
+		}
+		m_Listener = new MUR_TestSwarmMissionListener();
+		m_Mission = new MUR_TestSwarmMission();
+		m_Mission.StartWithFlights(m_Drones, m_Listener);
+		RplComponent.DeleteRplEntity(m_Drones[2], false);
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForOutcome() { return m_Listener && m_Listener.m_bFinished; }
+
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		AssertTrue(m_Listener.m_sMessage.Contains("1 returned, 2 failed or lost"), "The final status must distinguish a returned drone from failed and lost drones.");
+	}
+
+	[TestStep(TestStage.TearDown)]
+	void TearDown_DeleteFixtures()
+	{
+		foreach (IEntity drone : m_Drones) if (drone) RplComponent.DeleteRplEntity(drone, false);
+		if (m_Obstacle) SCR_EntityHelper.DeleteEntityAndChildren(m_Obstacle);
+	}
+}
+
+[Test(suite: MUR_FlightRouteSuite, timeoutS: 75)]
+class MUR_SwarmMission_ReturnedFlights_ReportAndCleanUp : SCR_AutotestCaseBase
+{
+	protected ref array<IEntity> m_Drones = {};
+	protected ref MUR_TestSwarmMission m_Mission;
+	protected ref MUR_TestSwarmMissionListener m_Listener;
+
+	[TestStep(TestStage.Setup)]
+	void Setup_Flights()
+	{
+		Resource prefab = Resource.Load("{87C1F8C2CD14A28C}Prefabs/MUR_Violet.et");
+		if (!prefab || !prefab.IsValid()) { SetFailure("Could not load the drone prefab."); return; }
+		for (int i = 0; i < 3; i++)
+		{
+			IEntity drone = GetGame().SpawnEntityPrefab(prefab, GetGame().GetWorld());
+			if (!drone) { SetFailure("Could not spawn a drone."); return; }
+			m_Drones.Insert(drone);
+			vector position = Vector(100 + i * 10, 100, 100);
+			drone.SetOrigin(position);
+			MUR_DroneFlightComponent flight = MUR_DroneFlightComponent.Cast(drone.FindComponent(MUR_DroneFlightComponent));
+			if (!flight || !flight.StartFlight(position + "2 0 0")) { SetFailure("Could not start a flight."); return; }
+		}
+		m_Listener = new MUR_TestSwarmMissionListener();
+		m_Mission = new MUR_TestSwarmMission();
+		m_Mission.StartWithFlights(m_Drones, m_Listener);
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForOutcome() { return m_Listener && m_Listener.m_bFinished; }
+
+	[TestStep(TestStage.Main)]
+	void Execute_Assert()
+	{
+		AssertTrue(m_Listener.m_sMessage.Contains("3 drones returned"), "A successful mission must report the returned drones.");
+		AssertTrue(m_Drones[0] && m_Drones[1] && m_Drones[2], "Returned drones should remain visible briefly.");
+		m_Mission = null;
+	}
+
+	[TestStep(TestStage.Main)]
+	bool Execute_WaitForCleanup() { return !m_Drones[0] && !m_Drones[1] && !m_Drones[2]; }
+
+	[TestStep(TestStage.TearDown)]
+	void TearDown_DeleteFixtures()
+	{
+		foreach (IEntity drone : m_Drones) if (drone) RplComponent.DeleteRplEntity(drone, false);
 	}
 }
 

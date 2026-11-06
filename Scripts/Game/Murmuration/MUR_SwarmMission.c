@@ -4,6 +4,30 @@ class MUR_SwarmMissionListener
 	bool IsRequesterValid(IEntity player) { return player != null; }
 }
 
+// Keeps finished drones visible briefly, even if the player starts another mission.
+class MUR_SwarmCleanup
+{
+	protected static ref array<ref MUR_SwarmCleanup> s_Pending = {};
+	protected ref array<IEntity> m_Drones = {};
+
+	static void Schedule(array<IEntity> drones)
+	{
+		if (!drones || drones.IsEmpty()) return;
+		MUR_SwarmCleanup cleanup = new MUR_SwarmCleanup();
+		cleanup.m_Drones.Copy(drones);
+		s_Pending.Insert(cleanup);
+		GetGame().GetCallqueue().CallLater(cleanup.RemoveDrones, 30000, false);
+	}
+
+	protected void RemoveDrones()
+	{
+		foreach (IEntity drone : m_Drones)
+			if (drone) RplComponent.DeleteRplEntity(drone, false);
+		m_Drones.Clear();
+		s_Pending.RemoveItem(this);
+	}
+}
+
 // A mission is owned by one player controller and runs on the authority.
 class MUR_SwarmMission : MUR_OllamaListener
 {
@@ -94,12 +118,15 @@ class MUR_SwarmMission : MUR_OllamaListener
 	{
 		if (m_bFinished) return;
 		bool anyFlying;
+		int returned;
+		int failedOrLost;
 		float now = System.GetTickCount() * 0.001;
 		foreach (IEntity drone : m_Drones)
 		{
-			if (!drone) continue;
+			if (!drone) { failedOrLost++; continue; }
 			MUR_DroneFlightComponent flight = MUR_DroneFlightComponent.Cast(drone.FindComponent(MUR_DroneFlightComponent));
-			if (!flight || flight.IsComplete() || flight.IsFailed()) continue;
+			if (!flight || flight.IsFailed()) { failedOrLost++; continue; }
+			if (flight.IsComplete()) { returned++; continue; }
 			anyFlying = true;
 			vector distance = drone.GetOrigin() - m_vScoutPoint;
 			distance[1] = 0;
@@ -111,7 +138,12 @@ class MUR_SwarmMission : MUR_OllamaListener
 		}
 		if (!anyFlying)
 		{
-			Finish("Swarm mission ended.");
+			if (failedOrLost > 0 && m_fSearchStart < 0)
+				Finish(string.Format("Scouting failed: %1 returned, %2 failed or lost.", returned, failedOrLost));
+			else if (failedOrLost > 0)
+				Finish(string.Format("Swarm mission ended: %1 returned, %2 failed or lost.", returned, failedOrLost));
+			else
+				Finish(string.Format("Swarm mission complete: %1 drones returned.", returned));
 			return;
 		}
 		if (!m_bReturning && m_fSearchStart >= 0 && now - m_fSearchStart >= 300)
@@ -132,6 +164,8 @@ class MUR_SwarmMission : MUR_OllamaListener
 	{
 		if (m_bFinished) return;
 		m_bFinished = true;
+		MUR_SwarmCleanup.Schedule(m_Drones);
+		m_Drones.Clear();
 		if (m_Listener) m_Listener.OnMissionStatus(message, false);
 	}
 }
