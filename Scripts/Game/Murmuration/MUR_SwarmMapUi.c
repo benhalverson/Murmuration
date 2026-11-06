@@ -33,7 +33,7 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 			return;
 		}
 		m_Button.AddHandler(this);
-		m_ButtonBackground.LoadImageTexture(0, "UI/Textures/Sights/1P29/1P29_black_solid_UI.edds");
+		m_ButtonBackground.LoadImageTexture(0, "{4E6095CD6A337D2A}UI/Textures/Sights/1P29/1P29_black_solid_UI.edds");
 		m_ButtonText.SetText("Launch Swarm");
 		m_ButtonText.SetExactFontSize(22);
 		m_ButtonText.SetColor(Color.White);
