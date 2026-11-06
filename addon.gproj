@@ -1,0 +1,8 @@
+GameProject {
+ ID "Murmuration"
+ GUID "A524B9D4F8038E71"
+ TITLE "Murmuration"
+ Dependencies {
+  "58D0FB3206B6F859"
+ }
+}

@@ -1,0 +1,15 @@
+GenericEntity {
+ ID "A39802E278DE0141"
+ components {
+  MeshObject "{A39802E278DE0142}" {
+   Object "{7E92A4B6D56AE041}Assets/Models/MUR_Violet.xob"
+  }
+  MUR_DroneFlightComponent "{A39802E278DE0143}" {
+  }
+  RplComponent "{A39802E278DE0144}" {
+   Streamable Disabled
+  }
+  Hierarchy "{A39802E278DE0145}" {
+  }
+ }
+}
