@@ -2,6 +2,7 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 {
 	protected SCR_MapEntity m_Map;
 	protected SCR_PlayerController m_Controller;
+	protected ImageWidget m_ButtonBackground;
 	protected ButtonWidget m_Button;
 	protected TextWidget m_ButtonText;
 	protected TextWidget m_StatusText;
@@ -17,6 +18,7 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 		if (!m_Map || !m_Controller) return;
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		if (!workspace) return;
+		m_ButtonBackground = ImageWidget.Cast(workspace.CreateWidgetInWorkspace(WidgetType.ImageWidgetTypeID, 24, 140, 220, 40, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR, null, 9999));
 		m_Button = ButtonWidget.Cast(workspace.CreateWidgetInWorkspace(WidgetType.ButtonWidgetTypeID, 24, 140, 220, 40, WidgetFlags.VISIBLE, null, 10000));
 		m_ButtonText = TextWidget.Cast(workspace.CreateWidgetInWorkspace(WidgetType.TextWidgetTypeID, 35, 148, 200, 28, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR, null, 10001));
 		m_StatusText = TextWidget.Cast(workspace.CreateWidgetInWorkspace(WidgetType.TextWidgetTypeID, 24, 185, 420, 70, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR, null, 10001));
@@ -25,13 +27,17 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 		m_MarkerRoot = FrameWidget.Cast(workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, workspace.DPIUnscale(screenWidth), workspace.DPIUnscale(screenHeight), WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR, null, 9999));
 		if (m_MarkerRoot)
 			m_Marker = TextWidget.Cast(workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.White, 0, m_MarkerRoot));
-		if (!m_Button || !m_ButtonText || !m_StatusText || !m_Marker)
+		if (!m_ButtonBackground || !m_Button || !m_ButtonText || !m_StatusText || !m_Marker)
 		{
 			Close();
 			return;
 		}
 		m_Button.AddHandler(this);
+		m_ButtonBackground.LoadImageTexture(0, "UI/Textures/Sights/1P29/1P29_black_solid_UI.edds");
 		m_ButtonText.SetText("Launch Swarm");
+		m_ButtonText.SetExactFontSize(22);
+		m_ButtonText.SetColor(Color.White);
+		m_ButtonText.SetShadow(2);
 		m_Marker.SetText("+ SCOUT");
 		m_Marker.SetExactFontSize(24);
 		m_Marker.SetShadow(2);
@@ -48,10 +54,12 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 		SCR_MapEntity.GetOnSelection().Remove(OnMapSelection);
 		SCR_PlayerController.s_MURStatusChanged.Remove(OnStatusChanged);
 		GetGame().GetCallqueue().Remove(UpdateMarker);
+		if (m_ButtonBackground) m_ButtonBackground.RemoveFromHierarchy();
 		if (m_Button) m_Button.RemoveFromHierarchy();
 		if (m_ButtonText) m_ButtonText.RemoveFromHierarchy();
 		if (m_StatusText) m_StatusText.RemoveFromHierarchy();
 		if (m_MarkerRoot) m_MarkerRoot.RemoveFromHierarchy();
+		m_ButtonBackground = null;
 		m_Button = null;
 		m_ButtonText = null;
 		m_StatusText = null;
@@ -97,7 +105,13 @@ class MUR_SwarmMapUi : ScriptedWidgetEventHandler
 			m_StatusText.SetText("Equip a drone controller to launch.");
 		else if (m_Controller.MUR_IsActive() && m_StatusText)
 			m_StatusText.SetText(m_Controller.MUR_GetStatus());
-		m_Button.SetEnabled(hasController && m_bHasScoutPoint && !m_Controller.MUR_IsActive());
+		bool canLaunch = hasController && m_bHasScoutPoint && !m_Controller.MUR_IsActive();
+		m_Button.SetEnabled(canLaunch);
+		if (m_ButtonText)
+		{
+			if (canLaunch) m_ButtonText.SetColor(Color.White);
+			else m_ButtonText.SetColor(new Color(0.75, 0.75, 0.75, 1));
+		}
 	}
 
 	override bool OnClick(Widget w, int x, int y, int button)
